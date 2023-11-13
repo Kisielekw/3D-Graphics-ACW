@@ -1,6 +1,6 @@
 #version 330
 
-struct Light
+struct PointLight
 {
 	vec4 position;
 	vec3 colour;
@@ -11,10 +11,11 @@ struct Material
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	vec3 directional;
 	float shininess;
 };
 
-uniform Light uLights[3];
+uniform PointLight uLights[3];
 uniform Material uMaterial;
 
 uniform vec4 uEyePosition;
@@ -24,6 +25,8 @@ uniform sampler2D uTexture;
 in vec4 oNormal;
 in vec4 oSurfacePosition;
 in vec2 oTexCoords;
+
+in vec3 oDirectionalLightColour;
 
 out vec4 FragColour;
 
@@ -51,5 +54,11 @@ void main()
 		sumColour += vec3(ambientLight * uMaterial.ambient + diffuseLight * uMaterial.diffuse + specularLight * uMaterial.specular);
 	}
 
-	FragColour = vec4(sumColour, 1);
+	vec4 textureColor = texture(uTexture, oTexCoords);
+
+	vec3 directional = uMaterial.directional * oDirectionalLightColour;
+
+    vec3 finalColor = sumColour + directional + (textureColor.rgb * 0.5);
+
+    FragColour = vec4(finalColor, textureColor.a);
 }

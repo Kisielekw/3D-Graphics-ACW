@@ -46,13 +46,25 @@ namespace Labs.ACW
 
         private double mTime = 0;
 
+        struct Material
+        {
+            public Vector3 ambient;
+            public Vector3 diffuse;
+            public Vector3 specular;
+            public Vector3 directional;
+            public float shininess;
+        }
+
+        Material mRoomMaterial, mCylinderMaterial, mArmadiloMaterial, mCubeMaterial, mSphereMaterial;
+
         protected override void OnLoad(EventArgs e)
         {
  	        base.OnLoad(e);
 
-            GL.ClearColor(Color4.Black);
+            GL.ClearColor(Color4.CornflowerBlue);
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.CullFace);
+            GL.Enable(EnableCap.Texture2D);
 
             //load models
             mCylinderModel = ModelUtility.LoadModel(@"Utility/Models/cylinder.bin");
@@ -68,40 +80,40 @@ namespace Labs.ACW
             int vTexCoordLocation = GL.GetAttribLocation(mShader.ShaderProgramID, "vTexCoords");
 
             #region Texture Loading
-            GL.GenTextures(mTextureID.Length, mTextureID);
+            GL.GenTextures(2, mTextureID);
 
-            string File = @"ACW/Textures/Brick.jpg";
-            if (System.IO.File.Exists(File))
-            {
-                Bitmap TextureBitmap = new Bitmap(File);
-                mBrickTexture = TextureBitmap.LockBits(new System.Drawing.Rectangle(0, 0, TextureBitmap.Width, TextureBitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-
-                GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, mTextureID[0]);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, mBrickTexture.Width, mBrickTexture.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, mBrickTexture.Scan0);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-                TextureBitmap.UnlockBits(mBrickTexture);
-            }
-            else
-            {
-                throw new Exception("Could not find texture file " + File);
-            }
-
-            File = @"ACW/Textures/Wood.jpg";
+            string File = @"ACW/Textures/Wood.jpg";
             if (System.IO.File.Exists(File))
             {
                 Bitmap TextureBitmap = new Bitmap(File);
                 mWoodTexture = TextureBitmap.LockBits(new System.Drawing.Rectangle(0, 0, TextureBitmap.Width, TextureBitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
 
                 GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, mTextureID[1]);
+                GL.BindTexture(TextureTarget.Texture2D, mTextureID[0]);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, mWoodTexture.Width, mWoodTexture.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, mWoodTexture.Scan0);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
                 TextureBitmap.UnlockBits(mWoodTexture);
+            }
+            else
+            {
+                throw new Exception("Could not find texture file " + File);
+            }
+
+            File = @"ACW/Textures/Brick.jpg";
+            if (System.IO.File.Exists(File))
+            {
+                Bitmap TextureBitmap = new Bitmap(File);
+                mBrickTexture = TextureBitmap.LockBits(new System.Drawing.Rectangle(0, 0, TextureBitmap.Width, TextureBitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+
+                GL.ActiveTexture(TextureUnit.Texture1);
+                GL.BindTexture(TextureTarget.Texture2D, mTextureID[1]);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, mBrickTexture.Width, mBrickTexture.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, mBrickTexture.Scan0);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+
+                TextureBitmap.UnlockBits(mBrickTexture);
             }
             else
             {
@@ -278,22 +290,49 @@ namespace Labs.ACW
             uLightColourLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uLights[2].colour");
             Vector3 light3Colour = new Vector3(0, 0, 1);
             GL.Uniform3(uLightColourLocation, light3Colour);
+
+            int uLightDirectionLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uLightDirection");
+            Vector3 normalisedLightDirection, lightDirection = new Vector3(0, -1, 1);
+            Vector3.Normalize(ref lightDirection, out normalisedLightDirection);
+            GL.Uniform3(uLightDirectionLocation, normalisedLightDirection);
+
+            int uDirectionalLightColourLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uDirectionalLightColour");
+            Vector3 directionalLightColour = new Vector3(0.96f, 0.91f, 0.61f);
+            GL.Uniform3(uDirectionalLightColourLocation, directionalLightColour);
             #endregion
 
             #region Material
-            int uMaterialAmbientLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.ambient");
-            int uMaterialDiffuseLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.diffuse");
-            int uMaterialSpecularLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.specular");
-            int uMaterialShininessLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.shininess");
 
-            Vector3 materialAmbient = new Vector3(0.1f, 0.1f, 0.1f);
-            Vector3 materialDiffuse = new Vector3(0.5f, 0.5f, 0.5f);
-            Vector3 materialSpecular = new Vector3(0.5f, 0.5f, 0.5f);
+            mArmadiloMaterial.ambient = new Vector3(0.14f, 0.22f, 0.15f);
+            mArmadiloMaterial.diffuse = new Vector3(0.54f, 0.89f, 0.63f);
+            mArmadiloMaterial.specular = new Vector3(0.32f, 0.32f, 0.32f);
+            mArmadiloMaterial.directional = new Vector3(0.1f, 0.5f, 0.2f);
+            mArmadiloMaterial.shininess = 128f * 0.1f;
 
-            GL.Uniform3(uMaterialAmbientLocation, materialAmbient);
-            GL.Uniform3(uMaterialDiffuseLocation, materialDiffuse);
-            GL.Uniform3(uMaterialSpecularLocation, materialSpecular);
-            GL.Uniform1(uMaterialShininessLocation, 30f);
+            mRoomMaterial.ambient = new Vector3(0.1f, 0.1f, 0.1f);
+            mRoomMaterial.diffuse = new Vector3(0.5f, 0.5f, 0.5f);
+            mRoomMaterial.specular = new Vector3(0.1f, 0.1f, 0.1f);
+            mRoomMaterial.directional = new Vector3(0.1f, 0.1f, 0.1f);
+            mRoomMaterial.shininess = 100f;
+
+            mCylinderMaterial.ambient = new Vector3(0.0f, 0.0f, 0.0f);
+            mCylinderMaterial.diffuse = new Vector3(0.2f, 0.2f, 0.2f);
+            mCylinderMaterial.specular = new Vector3(0.5f, 0.5f, 0.5f);
+            mCylinderMaterial.directional = new Vector3(0.1f, 0.1f, 0.1f);
+            mCylinderMaterial.shininess = 128f * 0.25f;
+
+            mSphereMaterial.ambient = new Vector3(0.25f, 0.25f, 0.25f);
+            mSphereMaterial.diffuse = new Vector3(0.4f, 0.4f, 0.4f);
+            mSphereMaterial.specular = new Vector3(0.77f, 0.77f, 0.77f);
+            mSphereMaterial.directional = new Vector3(0.2f, 0.2f, 0.2f);
+            mSphereMaterial.shininess = 128f * 0.6f;
+
+            mCubeMaterial.ambient = new Vector3(0.1f, 0.1f, 0.1f);
+            mCubeMaterial.diffuse = new Vector3(0.5f, 0.5f, 0.5f);
+            mCubeMaterial.specular = new Vector3(0.5f, 0.5f, 0.5f);
+            mCubeMaterial.directional = new Vector3(0.1f, 0.1f, 0.1f);
+            mCubeMaterial.shininess = 30f;
+
             #endregion
 
             int uEyePositionLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uEyePosition");
@@ -441,15 +480,15 @@ namespace Labs.ACW
 
             int uTextureLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uTexture");
             int uModelLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uModelMatrix");
-            
+
             GL.UniformMatrix4(uModelLocation, true, ref mRoom);
-            int uTextureSamplerLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uTexture");
-            GL.Uniform1(uTextureSamplerLocation, 1);
+            GL.Uniform1(uTextureLocation, 0);
+            SetMaterial(mRoomMaterial);
 
             GL.BindVertexArray(mVAO_IDs[0]);
             GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
-            GL.Uniform1(uTextureLocation, mTextureID[0]);
+            GL.Uniform1(uTextureLocation, 1);
 
             for (int i = 1; i < 5; i++)
             {
@@ -458,6 +497,7 @@ namespace Labs.ACW
             }
 
             GL.UniformMatrix4(uModelLocation, true, ref mCylinderM);
+            SetMaterial(mCylinderMaterial);
 
             GL.BindVertexArray(mVAO_IDs[5]);
             GL.DrawElements(PrimitiveType.Triangles, mCylinderModel.Indices.Length, DrawElementsType.UnsignedInt, 0);
@@ -473,15 +513,19 @@ namespace Labs.ACW
             GL.DrawElements(PrimitiveType.Triangles, mCylinderModel.Indices.Length, DrawElementsType.UnsignedInt, 0);
 
             GL.UniformMatrix4(uModelLocation, true, ref mArmadilo);
+            SetMaterial(mArmadiloMaterial);
 
             GL.BindVertexArray(mVAO_IDs[8]);
             GL.DrawElements(PrimitiveType.Triangles, mArmadiloModel.Indices.Length, DrawElementsType.UnsignedInt, 0);
 
             GL.UniformMatrix4(uModelLocation, true, ref mCube);
+            SetMaterial(mCubeMaterial);
 
             GL.BindVertexArray(mVAO_IDs[9]);
             GL.DrawElements(PrimitiveType.Triangles, mCubeModel.Indices.Length, DrawElementsType.UnsignedInt, 0);
+
             GL.UniformMatrix4(uModelLocation, true, ref mShpere);
+            SetMaterial(mSphereMaterial);
 
             GL.BindVertexArray(mVAO_IDs[10]);
             GL.DrawElements(PrimitiveType.Triangles, mSphereModel.Indices.Length, DrawElementsType.UnsignedInt, 0);
@@ -500,6 +544,21 @@ namespace Labs.ACW
             GL.DeleteVertexArrays(mVAO_IDs.Length, mVAO_IDs);
             mShader.Delete();
             base.OnUnload(e);
+        }
+
+        private void SetMaterial(Material material)
+        {
+            int uMaterialAmbientLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.ambient");
+            int uMaterialDiffuseLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.diffuse");
+            int uMaterialSpecularLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.specular");
+            int uMaterialShininessLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.shininess");
+            int uMaterialDirectionalLocation = GL.GetUniformLocation(mShader.ShaderProgramID, "uMaterial.directional");
+
+            GL.Uniform3(uMaterialAmbientLocation, material.ambient);
+            GL.Uniform3(uMaterialDiffuseLocation, material.diffuse);
+            GL.Uniform3(uMaterialSpecularLocation, material.specular);
+            GL.Uniform1(uMaterialShininessLocation, material.shininess);
+            GL.Uniform3(uMaterialDirectionalLocation, material.directional);
         }
     }
 }
